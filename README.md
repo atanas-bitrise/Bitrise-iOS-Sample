@@ -1,6 +1,6 @@
 # Bitrise-iOS-Sample
 
-Simple iOS Project 
+Forked Simple iOS Project 
 
 Working bitrise.yml included in the root of the project
 

@@ -271,7 +271,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/bin/git config --global pager.branch false\n/usr/bin/git branch -a\n/usr/bin/git rev-list remotes/origin/run-script-build-phase --count\n";
+			shellScript = "/usr/bin/git fetch\n/usr/bin/git rev-list remotes/origin/master --count\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

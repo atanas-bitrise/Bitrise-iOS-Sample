@@ -140,6 +140,7 @@
 				A1F9B0FF25C380F200E21DE4 /* Sources */,
 				A1F9B10025C380F200E21DE4 /* Frameworks */,
 				A1F9B10125C380F200E21DE4 /* Resources */,
+				4387682027D282D000958BED /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -253,6 +254,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4387682027D282D000958BED /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/git rev-list origin/master --count\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A1F9B0FF25C380F200E21DE4 /* Sources */ = {

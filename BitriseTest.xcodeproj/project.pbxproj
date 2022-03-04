@@ -271,7 +271,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\npwd\nls\n/usr/bin/git rev-list origin/master --count\n";
+			shellScript = "pwd\n/usr/bin/git remote -v\n/usr/bin/git rev-list origin/master --count\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

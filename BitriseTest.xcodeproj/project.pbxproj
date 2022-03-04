@@ -264,6 +264,8 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"",
+				"",
 			);
 			outputFileListPaths = (
 			);
@@ -271,7 +273,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/bin/git fetch\n/usr/bin/git rev-list remotes/origin/master --count\n";
+			shellScript = "/usr/bin/git fetch\n/usr/bin/git rev-list origin/master --count\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

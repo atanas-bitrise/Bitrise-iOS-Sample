@@ -273,7 +273,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/bin/git fetch origin master\n/usr/bin/git rev-list origin/master --count\n";
+			shellScript = "/usr/bin/git rev-list origin/master --count\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

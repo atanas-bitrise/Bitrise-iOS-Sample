@@ -63,6 +63,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		43782F23287387DE00510517 /* TestPlan1.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan1.xctestplan; sourceTree = "<group>"; };
+		43782F252873882F00510517 /* TestPlan2.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan2.xctestplan; sourceTree = "<group>"; };
 		439E5C56274D403800741769 /* BitriseTestTests29.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitriseTestTests29.swift; sourceTree = "<group>"; };
 		439E5C57274D403800741769 /* BitriseTestTests18.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitriseTestTests18.swift; sourceTree = "<group>"; };
 		439E5C58274D403800741769 /* BitriseTestTests28.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitriseTestTests28.swift; sourceTree = "<group>"; };
@@ -160,6 +162,8 @@
 				A1F9B10A25C380F400E21DE4 /* Assets.xcassets */,
 				A1F9B10F25C380F400E21DE4 /* Info.plist */,
 				A1F9B10C25C380F400E21DE4 /* Preview Content */,
+				43782F23287387DE00510517 /* TestPlan1.xctestplan */,
+				43782F252873882F00510517 /* TestPlan2.xctestplan */,
 			);
 			path = BitriseTest;
 			sourceTree = "<group>";

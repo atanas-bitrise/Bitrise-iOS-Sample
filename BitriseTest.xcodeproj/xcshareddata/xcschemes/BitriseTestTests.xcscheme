@@ -13,11 +13,14 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:BitriseTest/TestPlan2.xctestplan"
-            default = "YES">
+            reference = "container:BitriseTest/TestPlan2.xctestplan">
          </TestPlanReference>
          <TestPlanReference
             reference = "container:BitriseTest/TestPlan1.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:BitriseTest/MinimalTestPlan.xctestplan"
+            default = "YES">
          </TestPlanReference>
       </TestPlans>
       <Testables>

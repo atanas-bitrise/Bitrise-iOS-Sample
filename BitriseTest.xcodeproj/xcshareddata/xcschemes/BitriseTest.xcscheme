@@ -22,20 +22,20 @@
          </BuildActionEntry>
          <BuildActionEntry
             buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
             <TestPlanReference
                reference = "container:BitriseTest/TestPlan2.xctestplan">
             </TestPlanReference>
          </BuildActionEntry>
          <BuildActionEntry
             buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
             <TestPlanReference
                reference = "container:BitriseTest/TestPlan1.xctestplan">
             </TestPlanReference>
@@ -58,11 +58,14 @@
       </MacroExpansion>
       <TestPlans>
          <TestPlanReference
-            reference = "container:BitriseTest/TestPlan2.xctestplan"
-            default = "YES">
+            reference = "container:BitriseTest/TestPlan2.xctestplan">
          </TestPlanReference>
          <TestPlanReference
             reference = "container:BitriseTest/TestPlan1.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:BitriseTest/MinimalTestPlan.xctestplan"
+            default = "YES">
          </TestPlanReference>
       </TestPlans>
       <Testables>

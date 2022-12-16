@@ -67,6 +67,9 @@
             reference = "container:BitriseTest/MinimalTestPlan.xctestplan"
             default = "YES">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:BitriseTestUITests/OnlyUI.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference

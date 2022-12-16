@@ -1,0 +1,27 @@
+{
+  "configurations" : [
+    {
+      "id" : "7B42456F-87E5-4D3D-BD09-5F0C749C8690",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "BitriseTestUITests\/testLaunchPerformance()"
+      ],
+      "target" : {
+        "containerPath" : "container:BitriseTest.xcodeproj",
+        "identifier" : "A1F9B11E25C380F500E21DE4",
+        "name" : "BitriseTestUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

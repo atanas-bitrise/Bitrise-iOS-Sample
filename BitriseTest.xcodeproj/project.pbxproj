@@ -96,6 +96,7 @@
 		439E5C72274D403900741769 /* BitriseTestTests8.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitriseTestTests8.swift; sourceTree = "<group>"; };
 		439E5C73274D403900741769 /* BitriseTestTests24.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitriseTestTests24.swift; sourceTree = "<group>"; };
 		43BFEB7028739DA200A54F0E /* MinimalTestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MinimalTestPlan.xctestplan; sourceTree = "<group>"; };
+		43CE616F294C854D005B6498 /* OnlyUI.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = OnlyUI.xctestplan; sourceTree = "<group>"; };
 		A1F9B10325C380F200E21DE4 /* BitriseTest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BitriseTest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F9B10625C380F200E21DE4 /* BitriseTestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BitriseTestApp.swift; sourceTree = "<group>"; };
 		A1F9B10825C380F200E21DE4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -221,6 +222,7 @@
 			isa = PBXGroup;
 			children = (
 				A1F9B12325C380F500E21DE4 /* BitriseTestUITests.swift */,
+				43CE616F294C854D005B6498 /* OnlyUI.xctestplan */,
 				A1F9B12525C380F500E21DE4 /* Info.plist */,
 			);
 			path = BitriseTestUITests;

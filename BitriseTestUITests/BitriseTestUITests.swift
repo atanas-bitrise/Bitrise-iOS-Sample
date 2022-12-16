@@ -42,8 +42,8 @@ class BitriseTestUITests: XCTestCase {
         }
     }
     
-    override func record(_ issue: XCTIssue) {
-        add(XCTAttachment(screenshot: XCUIScreen.main.screenshot()))
-        super.record(issue)
-    }
+//    override func record(_ issue: XCTIssue) {
+//        add(XCTAttachment(screenshot: XCUIScreen.main.screenshot()))
+//        super.record(issue)
+//    }
 }

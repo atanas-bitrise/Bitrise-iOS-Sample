@@ -29,7 +29,7 @@ class BitriseTestUITests: XCTestCase {
 
         // Use recording to get started writing UI tests.
         // Use XCTAssert and related functions to verify your tests produce the correct results.
-        let greetingsLabel = app.staticTexts["Hello, world!"]
+        let greetingsLabel = app.staticTexts["Hello world!"]
         XCTAssertTrue(greetingsLabel.exists)
     }
 

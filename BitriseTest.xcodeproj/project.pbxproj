@@ -37,9 +37,9 @@
 		439E5C8F274D403900741769 /* BitriseTestTests14.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439E5C71274D403900741769 /* BitriseTestTests14.swift */; };
 		439E5C90274D403900741769 /* BitriseTestTests8.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439E5C72274D403900741769 /* BitriseTestTests8.swift */; };
 		439E5C91274D403900741769 /* BitriseTestTests24.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439E5C73274D403900741769 /* BitriseTestTests24.swift */; };
-		43CE6173295EE5AE005B6498 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = 43CE6172295EE5AE005B6498 /* Nuke */; };
-		43CE6175295EE5AE005B6498 /* NukeExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 43CE6174295EE5AE005B6498 /* NukeExtensions */; };
-		43CE6177295EE5AE005B6498 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = 43CE6176295EE5AE005B6498 /* NukeUI */; };
+		43CE617A295EEF6B005B6498 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = 43CE6179295EEF6B005B6498 /* SwiftProtobuf */; };
+		43CE617C295EEF6B005B6498 /* SwiftProtobufPluginLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = 43CE617B295EEF6B005B6498 /* SwiftProtobufPluginLibrary */; };
+		43CE617E295EEF6B005B6498 /* protoc-gen-swift in Frameworks */ = {isa = PBXBuildFile; productRef = 43CE617D295EEF6B005B6498 /* protoc-gen-swift */; };
 		A1F9B10725C380F200E21DE4 /* BitriseTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F9B10625C380F200E21DE4 /* BitriseTestApp.swift */; };
 		A1F9B10925C380F200E21DE4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F9B10825C380F200E21DE4 /* ContentView.swift */; };
 		A1F9B10B25C380F400E21DE4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1F9B10A25C380F400E21DE4 /* Assets.xcassets */; };
@@ -118,9 +118,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				43CE6177295EE5AE005B6498 /* NukeUI in Frameworks */,
-				43CE6173295EE5AE005B6498 /* Nuke in Frameworks */,
-				43CE6175295EE5AE005B6498 /* NukeExtensions in Frameworks */,
+				43CE617C295EEF6B005B6498 /* SwiftProtobufPluginLibrary in Frameworks */,
+				43CE617A295EEF6B005B6498 /* SwiftProtobuf in Frameworks */,
+				43CE617E295EEF6B005B6498 /* protoc-gen-swift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,9 +249,9 @@
 			);
 			name = BitriseTest;
 			packageProductDependencies = (
-				43CE6172295EE5AE005B6498 /* Nuke */,
-				43CE6174295EE5AE005B6498 /* NukeExtensions */,
-				43CE6176295EE5AE005B6498 /* NukeUI */,
+				43CE6179295EEF6B005B6498 /* SwiftProtobuf */,
+				43CE617B295EEF6B005B6498 /* SwiftProtobufPluginLibrary */,
+				43CE617D295EEF6B005B6498 /* protoc-gen-swift */,
 			);
 			productName = BitriseTest;
 			productReference = A1F9B10325C380F200E21DE4 /* BitriseTest.app */;
@@ -325,7 +325,7 @@
 			);
 			mainGroup = A1F9B0FA25C380F200E21DE4;
 			packageReferences = (
-				43CE6171295EE5AE005B6498 /* XCRemoteSwiftPackageReference "Nuke" */,
+				43CE6178295EEF6B005B6498 /* XCRemoteSwiftPackageReference "swift-protobuf" */,
 			);
 			productRefGroup = A1F9B10425C380F200E21DE4 /* Products */;
 			projectDirPath = "";
@@ -738,31 +738,31 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		43CE6171295EE5AE005B6498 /* XCRemoteSwiftPackageReference "Nuke" */ = {
+		43CE6178295EEF6B005B6498 /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kean/Nuke";
+			repositoryURL = "https://github.com/apple/swift-protobuf.git";
 			requirement = {
 				kind = exactVersion;
-				version = 11.3.0;
+				version = 1.20.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		43CE6172295EE5AE005B6498 /* Nuke */ = {
+		43CE6179295EEF6B005B6498 /* SwiftProtobuf */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 43CE6171295EE5AE005B6498 /* XCRemoteSwiftPackageReference "Nuke" */;
-			productName = Nuke;
+			package = 43CE6178295EEF6B005B6498 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
 		};
-		43CE6174295EE5AE005B6498 /* NukeExtensions */ = {
+		43CE617B295EEF6B005B6498 /* SwiftProtobufPluginLibrary */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 43CE6171295EE5AE005B6498 /* XCRemoteSwiftPackageReference "Nuke" */;
-			productName = NukeExtensions;
+			package = 43CE6178295EEF6B005B6498 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobufPluginLibrary;
 		};
-		43CE6176295EE5AE005B6498 /* NukeUI */ = {
+		43CE617D295EEF6B005B6498 /* protoc-gen-swift */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 43CE6171295EE5AE005B6498 /* XCRemoteSwiftPackageReference "Nuke" */;
-			productName = NukeUI;
+			package = 43CE6178295EEF6B005B6498 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = "protoc-gen-swift";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

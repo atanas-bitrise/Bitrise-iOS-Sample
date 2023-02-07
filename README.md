@@ -2,7 +2,6 @@
 
 Simple iOS Project  with working bitrise.yml included in the root of the project that builds iOS .ipa and runs tests.
 
-
 ## Bitrise Setup
 
 Create a new project in Bitrise using this repo as you normally would. Use the `bitrise.yml` from the repo to define your workflows.

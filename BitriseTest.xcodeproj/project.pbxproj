@@ -95,6 +95,7 @@
 		439E5C71274D403900741769 /* BitriseTestTests14.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitriseTestTests14.swift; sourceTree = "<group>"; };
 		439E5C72274D403900741769 /* BitriseTestTests8.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitriseTestTests8.swift; sourceTree = "<group>"; };
 		439E5C73274D403900741769 /* BitriseTestTests24.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitriseTestTests24.swift; sourceTree = "<group>"; };
+		439F3D642A13C6B70054A1B5 /* OneFlakyTest.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = file; name = OneFlakyTest.xctestplan; path = BitriseTest/OneFlakyTest.xctestplan; sourceTree = SOURCE_ROOT; };
 		43BFEB7028739DA200A54F0E /* MinimalTestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MinimalTestPlan.xctestplan; sourceTree = "<group>"; };
 		A1F9B10325C380F200E21DE4 /* BitriseTest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BitriseTest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F9B10625C380F200E21DE4 /* BitriseTestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BitriseTestApp.swift; sourceTree = "<group>"; };
@@ -212,6 +213,7 @@
 				439E5C56274D403800741769 /* BitriseTestTests29.swift */,
 				439E5C69274D403800741769 /* BitriseTestTests30.swift */,
 				A1F9B11825C380F500E21DE4 /* BitriseTestTests.swift */,
+				439F3D642A13C6B70054A1B5 /* OneFlakyTest.xctestplan */,
 				A1F9B11A25C380F500E21DE4 /* Info.plist */,
 			);
 			path = BitriseTestTests;

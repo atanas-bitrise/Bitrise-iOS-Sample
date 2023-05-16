@@ -64,7 +64,10 @@
             reference = "container:BitriseTest/TestPlan1.xctestplan">
          </TestPlanReference>
          <TestPlanReference
-            reference = "container:BitriseTest/MinimalTestPlan.xctestplan"
+            reference = "container:BitriseTest/MinimalTestPlan.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:BitriseTest/OneFlakyTest.xctestplan"
             default = "YES">
          </TestPlanReference>
       </TestPlans>

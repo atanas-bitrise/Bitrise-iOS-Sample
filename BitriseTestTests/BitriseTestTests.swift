@@ -17,12 +17,9 @@ class BitriseTestTests: XCTestCase {
     override func tearDownWithError() throws {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
-    
-    var willFlakyTestFail = true
-    
+        
     func testFlakyMultipleRuns() throws {
-        XCTAssertTrue(!willFlakyTestFail)
-        willFlakyTestFail = false
+        XCTAssertTrue(Bool.random())
     }
 
     func testExample0() throws { XCTAssertTrue(1==1, "One is not equal to one") }

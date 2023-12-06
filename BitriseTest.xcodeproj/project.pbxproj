@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -250,6 +250,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A1F9B12B25C380F500E21DE4 /* Build configuration list for PBXNativeTarget "BitriseTestTests" */;
 			buildPhases = (
+				434A27052B208F1A0003592D /* Atanas Script */,
 				A1F9B11025C380F500E21DE4 /* Sources */,
 				A1F9B11125C380F500E21DE4 /* Frameworks */,
 				A1F9B11225C380F500E21DE4 /* Resources */,
@@ -349,6 +350,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		434A27052B208F1A0003592D /* Atanas Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Atanas Script";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho \"!!!!!!!!!!!!!!!!!!! Atanas Script is running\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A1F9B0FF25C380F200E21DE4 /* Sources */ = {

@@ -1,0 +1,49 @@
+{
+  "configurations" : [
+    {
+      "id" : "45152B59-A3F8-4590-B528-0E08DF5CD99F",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "BitriseTestTests",
+        "BitriseTestTests1",
+        "BitriseTestTests10",
+        "BitriseTestTests11",
+        "BitriseTestTests12",
+        "BitriseTestTests13",
+        "BitriseTestTests14",
+        "BitriseTestTests15",
+        "BitriseTestTests2",
+        "BitriseTestTests3",
+        "BitriseTestTests4",
+        "BitriseTestTests5",
+        "BitriseTestTests6",
+        "BitriseTestTests7",
+        "BitriseTestTests8",
+        "BitriseTestTests9"
+      ],
+      "target" : {
+        "containerPath" : "container:BitriseTest.xcodeproj",
+        "identifier" : "A1F9B11325C380F500E21DE4",
+        "name" : "BitriseTestTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:BitriseTest.xcodeproj",
+        "identifier" : "A1F9B11E25C380F500E21DE4",
+        "name" : "BitriseTestUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

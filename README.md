@@ -1,6 +1,6 @@
 # Bitrise-iOS-Sample
 
-Simple iOS Project  with working bitrise.yml included in the root of the project that builds iOS .ipa and runs tests.
+Simple iOS Project with working bitrise.yml included in the root of the project that builds iOS .ipa and runs tests.
 
 ## Bitrise Setup
 

@@ -5,7 +5,7 @@ project_type: ios
 include:
   - path: included.yml
     branch: include
-    repository: https://github.com/atanas-bitrise/Bitrise-iOS-Sample.git
+    repository: Bitrise-iOS-Sample
 trigger_map:
 - push_branch: "*"
   workflow: primary

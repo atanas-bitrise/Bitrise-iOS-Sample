@@ -1,0 +1,12 @@
+format_version: 10
+
+app:
+  envs:
+  - PASSWORD: NotSoSafe
+
+workflows:
+  test2:
+    steps:
+    - script:
+        inputs:
+        - content: echo "Your password ${PASSWORD} is not secure!"

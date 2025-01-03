@@ -1,5 +1,8 @@
+format_version: 13
+
+workflows:
   test2:
     steps:
     - script:
         inputs:
-        - content: echo "Your password ${PASSWORD} is not secure!"
+        - content: echo "Hello ${USERNAME}!"

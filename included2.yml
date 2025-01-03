@@ -5,4 +5,4 @@ workflows:
     steps:
     - script:
         inputs:
-        - content: echo "Hello ${USERNAME}!"
+        - content: echo "Hello world!"

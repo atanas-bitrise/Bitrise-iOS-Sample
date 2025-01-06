@@ -4,6 +4,7 @@ app:
   envs:
   - USERNAME: UserName
 
+workflows:
   test:
     steps:
     - script:

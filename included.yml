@@ -3,7 +3,10 @@ format_version: 14
 app:
   envs:
   - USERNAME: UserName
-
+include:
+  - path: included.yml
+    branch: include
+    repository: https://github.com/atanas-bitrise/bitrise-checks
 workflows:
   test:
     steps:

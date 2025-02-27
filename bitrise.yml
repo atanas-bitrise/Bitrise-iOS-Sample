@@ -1,20 +1,374 @@
 ---
-format_version: '8'
+format_version: '13'
 default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
 project_type: ios
-trigger_map:
-- push_branch: "*"
-  workflow: primary
-- pull_request_source_branch: "*"
-  workflow: primary
+pipelines:
+  share-env:
+    stages:
+    - generate-env: {}
+    - read-env: {}
+  save-credits:
+    stages:
+    - prepare-for-testing: {}
+    - test-on-firebase: {}
+    - always-success: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.3.x-ventura
+        machine_type_id: g2-m1.8core
+  test-shards:
+    stages:
+    - build-for-testing: {}
+    - test-without-building: {}
+  wrapper:
+    stages:
+    - wrapper-stage: {}
+stages:
+  generate-env:
+    workflows:
+    - share-environment-variable: {}
+  read-env:
+    workflows:
+    - read-environment-variable: {}
+  wrapper-stage:
+    workflows:
+    - deploy-version: {}
+  prepare-for-testing:
+    workflows:
+    - pipelines-prepare-for-testing: {}
+  test-on-firebase:
+    should_always_run: true
+    workflows:
+    - pipelines-firebase: {}
+  always-success:
+    should_always_run: true
+    workflows:
+    - success: {}
+  build-for-testing:
+    workflows:
+    - build-for-testing-12k: {}
+  test-without-building:
+    workflows:
+    - test-without-building-12k: {}
+    - test-without-building-12k-plan1: {}
+    - test-without-building-12k-plan2: {}
 workflows:
-  deploy:
+  android-orchestrator:
     steps:
     - activate-ssh-key@4:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@4: {}
     - cache-pull@2: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - xcode-build-for-test@1:
+        inputs:
+        - verbose_log: 'yes'
+    - deploy-to-bitrise-io@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -e
+            set -o pipefail
+            set -x
+
+
+            ARTIFACT_REGEX='testbundle.zip=>https://app.bitrise.io/artifact/([a-f0-9]+)/download'
+            [[ $BITRISE_PERMANENT_DOWNLOAD_URL_MAP =~ $ARTIFACT_REGEX ]]
+            echo "${BASH_REMATCH[1]}"
+    - set-env-var@0:
+        inputs:
+        - destination_keys: ORCHESTRATOR_BUILD_SLUG
+        - value: "$BITRISE_BUILD_SLUG"
+    - build-router-start@0:
+        inputs:
+        - access_token: "$BITRISE_API_TOKEN"
+        - workflows: android-ui-tests
+        - environment_key_list: ORCHESTRATOR_BUILD_SLUG
+        - verbose: 'yes'
+    - cache-push@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.0.x
+        machine_type_id: g2-m1-max.5core
+  android-shard:
+    steps:
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ORCHESTRATOR_BUILD_SLUG
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r --arg title "testbundle.zip" '.data[] | select(.title == $title).slug' | tr -d '\n' | envman add --key ARTIFACT_SLUG
+
+            # write your script here
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo "The artifact slug is[$ARTIFACT_SLUG]"
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts/$ARTIFACT_SLUG" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r '.data.expiring_download_url' | tr -d '\n' | envman add --key ARTIFACT_URL
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ARTIFACT_URL
+
+            curl $ARTIFACT_URL -o testbundle.zip
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        title: Modify TestBundle
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            curl $BITRISEIO_MODIFIED_XCRUN_URL_URL -o BitriseTest_iphoneos15.4-arm64.xctestrun
+            ls
+            mkdir testbundle
+            # mv BitriseTest_iphoneos15.4-arm64.xctestrun testbundle/BitriseTest_iphoneos15.4-arm64.xctestrun
+            touch testbundle/BitriseTest_iphoneos15.4-arm64.xctestrun
+            zip testbundle.zip testbundle/BitriseTest_iphoneos15.4-arm64.xctestrun
+            # zip -d testbundle.zip BitriseTest_iphoneos15.4-arm64.xctestrun
+            # unzip testbundle.zip -d testbundle
+            # ls testbundle
+            # rm testbundle.zip
+            # rm testbundle/BitriseTest_iphoneos15.4-arm64.xctestrun
+            # ls testbundle
+            # mv BitriseTest_iphoneos15.4-arm64.xctestrun testbundle/BitriseTest_iphoneos15.4-arm64.xctestrun
+            # zip -vr testbundle.zip testbundle/ -x "*.DS_Store"
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - virtual-device-testing-for-ios@1:
+        inputs:
+        - test_devices: iphone11pro,14.7,en,portrait
+        - zip_path: "$BITRISE_SOURCE_DIR/testbundle.zip"
+    - deploy-to-bitrise-io@1: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.3.x-ventura
+        machine_type_id: g2-m1.8core
+  android-ui-tests:
+    steps:
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ORCHESTRATOR_BUILD_SLUG
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r --arg title "testbundle.zip" '.data[] | select(.title == $title).slug' | tr -d '\n' | envman add --key ARTIFACT_SLUG
+
+            # write your script here
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo "The artifact slug is[$ARTIFACT_SLUG]"
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts/$ARTIFACT_SLUG" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r '.data.expiring_download_url' | tr -d '\n' | envman add --key ARTIFACT_URL
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ARTIFACT_URL
+
+            curl $ARTIFACT_URL -o testbundle.zip
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - virtual-device-testing-for-ios@1:
+        inputs:
+        - test_devices: ipad5,15.4,en,portrait
+        - test_timeout: '3000'
+        - zip_path: "$BITRISE_SOURCE_DIR/testbundle.zip"
+    - deploy-to-bitrise-io@1: {}
+  android-ui-tests-xcode:
+    steps:
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ORCHESTRATOR_BUILD_SLUG
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r --arg title "testbundle.zip" '.data[] | select(.title == $title).slug' | tr -d '\n' | envman add --key ARTIFACT_SLUG
+
+            # write your script here
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo "The artifact slug is[$ARTIFACT_SLUG]"
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts/$ARTIFACT_SLUG" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r '.data.expiring_download_url' | tr -d '\n' | envman add --key ARTIFACT_URL
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ARTIFACT_URL
+
+            curl $ARTIFACT_URL -o testbundle.zip
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - git::https://github.com/atanas-bitrise/steps-virtual-device-testing-for-ios.git@ios15.4:
+        inputs:
+        - test_devices: ipad5,15.4,en,portrait
+        - test_timeout: '900'
+        - zip_path: "$BITRISE_SOURCE_DIR/testbundle.zip"
+    - deploy-to-bitrise-io@1: {}
+  benchmark_deploy:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4: {}
     - certificate-and-profile-installer@1: {}
+    - recreate-user-schemes@1:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
     - xcode-archive@3:
         inputs:
         - project_path: "$BITRISE_PROJECT_PATH"
@@ -26,8 +380,7 @@ workflows:
         - team_id: "$BITRISE_TEAM"
         - export_method: "$BITRISE_EXPORT_METHOD"
     - deploy-to-bitrise-io@1: {}
-    - cache-push@2: {}
-  primary:
+  benchmark_test:
     steps:
     - activate-ssh-key@4:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
@@ -40,6 +393,2075 @@ workflows:
         - scheme: "$BITRISE_SCHEME"
     - deploy-to-bitrise-io@1: {}
     - cache-push@2: {}
+  build-for-simulator:
+    steps:
+    - script@1:
+        inputs:
+        - script_file_path:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # xcrun simctl diagnose
+
+            cat ~/Library/Developer/CoreSimulator/Devices/device_set.plist
+
+            xcrun simctl list
+            DEVICE=$(xcrun simctl create "iPhone 13 mini" "iPhone 13 mini" "iOS17.2")
+            echo "Device Id is $DEVICE"
+            envman add --key DEVICE --value "$DEVICE"
+
+            cat ~/Library/Developer/CoreSimulator/Devices/device_set.plist
+
+            xcrun simctl list
+
+            # xcrun simctl diagnose
+
+            cat ~/Library/Developer/CoreSimulator/Devices/device_set.plist
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8:
+        inputs:
+        - merge_pr: 'no'
+        - update_submodules: 'no'
+        - clone_depth: '1'
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - recreate-user-schemes@1: {}
+    - xcode-build-for-test@3:
+        inputs:
+        - apple_team_id:
+        - destination: platform=iOS Simulator,id=3DBDD618-E913-4EA0-92D8-C22C24A587B8
+    - xcode-build-for-test@3:
+        inputs:
+        - apple_team_id:
+        - destination: platform=iOS Simulator,id=01B9B9F6-4BD5-4002-AA79-3F9A386C518E
+    - xcode-build-for-simulator@2: {}
+    - deploy-to-bitrise-io@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.2.x
+        machine_type_id: g2-m1.8core
+  build-for-testing:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6.1: {}
+    - cache-pull@2: {}
+    - certificate-and-profile-installer@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            xcodebuild "build-for-testing" "-project" "/Users/vagrant/git/BitriseTest.xcodeproj" "-target" "BitriseTest" "-configuration" "Debug" "-destination" "generic/platform=iOS" "-xcconfig" "/var/folders/11/nh0v1jld7zd7b9zqm1774gtm0000gn/T/2685840302/temp.xcconfig" "PROVISIONING_PROFILE=60cff004-0cf3-401a-9658-229c92516f26" "SYMROOT=/var/folders/11/nh0v1jld7zd7b9zqm1774gtm0000gn/T/test_bundle3489038107"
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - xcode-build-for-test@2:
+        inputs:
+        - test_plan: ''
+        - xcodebuild_options: PROVISIONING_PROFILE="60cff004-0cf3-401a-9658-229c92516f26"
+        - verbose_log: 'yes'
+    - deploy-to-bitrise-io@2.0: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            echo "URL Map"
+            echo $BITRISE_PERMANENT_DOWNLOAD_URL_MAP
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - set-env-var@0:
+        inputs:
+        - destination_keys: ORCHESTRATOR_BUILD_SLUG
+        - value: "$BITRISE_BUILD_SLUG"
+    - build-router-start@0:
+        inputs:
+        - access_token: "$BITRISE_API_TOKEN"
+        - workflows: test-without-building
+        - environment_key_list: ORCHESTRATOR_BUILD_SLUG
+        - verbose: 'yes'
+    - cache-push@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.2.x
+        machine_type_id: g2-m1-max.5core
+  build-for-testing-12k:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            ENV
+            defaults write com.apple.dt.XCBuild EnableSwiftBuildSystemIntegration 1
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - xcode-build-for-test@3:
+        inputs:
+        - test_plan: ''
+        - destination: generic/platform=iOS Simulator
+        - xcodebuild_options: ''
+        - xcconfig_content: |-
+            COMPILER_INDEX_STORE_ENABLE = NO
+            ARCHS=arm64
+            ONLY_ACTIVE_ARCH=NO
+        - verbose_log: 'yes'
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - pipeline_intermediate_files: "/Users/vagrant/deploy/testbundle.zip:BITRISE_TEST_BUNDLE_ZIP_PATH"
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.0.x
+        machine_type_id: g2-m1-max.5core
+  build-for-testing-no-provisioning:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            defaults write com.apple.dt.XCBuild EnableSwiftBuildSystemIntegration 1
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - xcode-build-for-test@2:
+        inputs:
+        - test_plan: ''
+        - xcodebuild_options: ''
+        - destination: platform=iOS Simulator,name=iPhone 11,OS=15.5
+        - verbose_log: 'yes'
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - pipeline_intermediate_files: "/Users/vagrant/deploy/testbundle.zip:BITRISE_TEST_BUNDLE_ZIP_PATH"
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.3.x
+        machine_type_id: g2-m1-max.5core
+  certificate-installer:
+    steps:
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+  commit-message:
+    steps:
+    - set-env-var@0:
+        inputs:
+        - value: Test git message
+        - destination_keys: BITRISE_GIT_MESSAGE
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo "✔  uploaded new release 3.24.5 (33) successfully! " >> tool-log.txt
+            echo "✔  View this release in the Firebase console: https://console.firebase.google.com/project/dosa-development-spck/appdistribution/app/android:com.evamall.evacustomer/releases/48ask4akvk5d8?utm_source=firebase-tools " >> tool-log.txt
+            echo "✔  Share this release with testers who have access: https://appdistribution.firebase.google.com/testerapps/1:521595941639:android:54da27f8f6b539894b0ba2/releases/48ask4akvk5d8?utm_source=firebase-tools " >> tool-log.txt
+            echo "✔  Download the release binary (link expires in 1 hour): https://firebaseappdistribution.googleapis.com/app-binary-downloads/projects/521595941639/apps/1:521595941639:android:54da27f8f6b539894b0ba2/releases/48ask4akvk5d8/binaries/59627857a3367d152af41097b619d1618ad086a567f4a66c1d5fcc595aab3aae/app.apk?utm_source=firebase-tools&token=AFb1MRwAAAAAZC_AoNXmTzP1UT11MblKXipM8lh24bbFjxYhQleugsF-EERIQI0BNab8b7WBI52cWyVzY9bSl1jleoWdbphw1CBQTLgDbdbmaeZts9M_8WRULdLoQmArvIQA53svFo7R6CpLPl-R8vlnEG7Lize67_nMtUzrPnGNS0gVHUbiVa0-YSo52kOMRwCDo82YxrPjyyJqKE_nug1f50vRG6ZnRPGAYKljUwMlCswTDvogoHMxoLVSnNTAj_3a6nBwD_UWDDy0fRRyMch09C4rtzRyGw02K9DOXot_Uvch2myBAG_-RCNptQUwKROiZC4Qv1qOSEqFxN1EnWuvRl2eITeCKlPzCRE " >> tool-log.txt
+            echo "⚠  no release notes specified, skipping " >> tool-log.txt
+            echo "⚠  no testers or groups specified, skipping " >> tool-log.txt
+            echo "  Success" >> tool-log.txt
+        run_if: 'false'
+    - script@1:
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            COMMAND="cat tool-log.txt"
+            FIREBASE_COMMAND_OUTPUT=$(eval $COMMAND | tee /dev/tty)
+            FIREBASE_URL=https:$(echo $FIREBASE_COMMAND_OUTPUT | grep 'View this release in the Firebase console:' | cut -d ':' -f 3)
+
+            echo $FIREBASE_URL
+        run_if: 'false'
+  demo:
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.3.x-ventura
+        machine_type_id: g2-m1-max.5core
+    steps:
+    - xcode-archive@5: {}
+    - script@1:
+        inputs:
+        - script_file_path:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            which xcodes
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+  deploy:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8: {}
+    - recreate-user-schemes@1:
+        inputs:
+        - project_path: "$BITRISE_SOURCE_DIR/BitriseTest.xcodeproj"
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            mkdir SourcePackages
+            # write your script here
+            xcodebuild -resolvePackageDependencies -project /Users/vagrant/git/BitriseTest.xcodeproj -scheme BitriseTest -clonedSourcePackagesDirPath SourcePackages
+
+            xcodebuild -resolvePackageDependencies -project /Users/vagrant/git/BitriseTest.xcodeproj -scheme BitriseTest -clonedSourcePackagesDirPath SourcePackages -destination generic/platform\=iOS
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - xcode-archive@5:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+        - force_code_sign_identity: "$BITRISE_CODE_SIGNING_IDENTITY"
+        - force_provisioning_profile: "$BITRISE_PROFILE_ID"
+        - compile_bitcode: 'no'
+        - upload_bitcode: 'no'
+        - team_id: "$BITRISE_TEAM"
+        - distribution_method: app-store
+        - export_options_plist_content: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE
+            plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist
+            version=\"1.0\">\n\t<dict>\n\t\t<key>manageAppVersionAndBuildNumber</key>\n\t\t<true/>\n\t\t<key>method</key>\n\t\t<string>app-store</string>\n\t\t<key>provisioningProfiles</key>\n\t\t<dict>\n\t\t\t<key>com.bitrise.test.AutoIncrement</key>\n\t\t\t<string>Auto
+            Increment Test Distribution</string>\n\t\t</dict>\n\t\t<key>signingCertificate</key>\n\t\t<string>iPhone
+            Distribution: BITFALL FEJLESZTO KORLATOLT FELELOSSEGU TARSASAG (72SA8V3WYL)</string>\n\t\t<key>teamID</key>\n\t\t<string>72SA8V3WYL</string>\n\t</dict>\n</plist>"
+        - automatic_code_signing: apple-id
+        - export_method: "$BITRISE_EXPORT_METHOD"
+    - deploy-to-bitrise-io@2.10: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.4.x
+        machine_type_id: g2-m1.8core
+  deploy-api-key:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8: {}
+    - cache-pull@2: {}
+    - recreate-user-schemes@1:
+        inputs:
+        - project_path: "$BITRISE_SOURCE_DIR/BitriseTest.xcodeproj"
+    - set-ios-product-bundle-identifier@1:
+        inputs:
+        - new_bundle_identifier: com.bitrise.test.BitriseTest1
+        - project_path: "$BITRISE_PROJECT_PATH"
+    - xcode-archive@5:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+        - force_code_sign_identity: "$BITRISE_CODE_SIGNING_IDENTITY"
+        - force_provisioning_profile: "$BITRISE_PROFILE_ID"
+        - compile_bitcode: 'no'
+        - upload_bitcode: 'no'
+        - team_id: "$BITRISE_TEAM"
+        - export_options_plist_content: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE
+            plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist
+            version=\"1.0\">\n\t<dict>\n\t\t<key>manageAppVersionAndBuildNumber</key>\n\t\t<true/>\n\t\t<key>method</key>\n\t\t<string>app-store</string>\n\t\t<key>provisioningProfiles</key>\n\t\t<dict>\n\t\t\t<key>com.bitrise.test.AutoIncrement</key>\n\t\t\t<string>Auto
+            Increment Test Distribution</string>\n\t\t</dict>\n\t\t<key>signingCertificate</key>\n\t\t<string>iPhone
+            Distribution: BITFALL FEJLESZTO KORLATOLT FELELOSSEGU TARSASAG (72SA8V3WYL)</string>\n\t\t<key>teamID</key>\n\t\t<string>72SA8V3WYL</string>\n\t</dict>\n</plist>"
+        - automatic_code_signing: api-key
+        - export_method: "$BITRISE_EXPORT_METHOD"
+    - deploy-to-bitrise-io@2: {}
+    - cache-push@2: {}
+  deploy-apple-id:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8: {}
+    - cache-pull@2: {}
+    - recreate-user-schemes@1:
+        inputs:
+        - project_path: "$BITRISE_SOURCE_DIR/BitriseTest.xcodeproj"
+    - xcode-archive@5:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+        - force_code_sign_identity: "$BITRISE_CODE_SIGNING_IDENTITY"
+        - force_provisioning_profile: "$BITRISE_PROFILE_ID"
+        - compile_bitcode: 'no'
+        - upload_bitcode: 'no'
+        - team_id: "$BITRISE_TEAM"
+        - distribution_method: app-store
+        - export_options_plist_content: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE
+            plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist
+            version=\"1.0\">\n\t<dict>\n\t\t<key>manageAppVersionAndBuildNumber</key>\n\t\t<true/>\n\t\t<key>method</key>\n\t\t<string>app-store</string>\n\t\t<key>provisioningProfiles</key>\n\t\t<dict>\n\t\t\t<key>com.bitrise.test.AutoIncrement</key>\n\t\t\t<string>Auto
+            Increment Test Distribution</string>\n\t\t</dict>\n\t\t<key>signingCertificate</key>\n\t\t<string>iPhone
+            Distribution: BITFALL FEJLESZTO KORLATOLT FELELOSSEGU TARSASAG (72SA8V3WYL)</string>\n\t\t<key>teamID</key>\n\t\t<string>72SA8V3WYL</string>\n\t</dict>\n</plist>"
+        - automatic_code_signing: apple-id
+        - export_method: "$BITRISE_EXPORT_METHOD"
+    - deploy-to-bitrise-io@2: {}
+    - cache-push@2: {}
+  deploy-spm-cache:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@7: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            echo $BITRISE_PROJECT_PATH
+            mkdir foo
+            ls
+            mv BitriseTest foo/
+            mv BitriseTest.xcodeproj foo/
+            mv BitriseTestTests foo/
+            mv BitriseTestUITests foo/
+            mv README.md foo/
+            mv bitrise.yml foo/
+            envman add --key BITRISE_PROJECT_PATH --value 'foo/BitriseTest.xcodeproj'
+            ls
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - recreate-user-schemes@1:
+        inputs:
+        - project_path: "$BITRISE_SOURCE_DIR/foo/BitriseTest.xcodeproj"
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - restore-spm-cache@1:
+        inputs:
+        - verbose: 'true'
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            ls /Users/vagrant/Library/Developer/Xcode/DerivedData/
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - xcode-archive@4:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+        - force_code_sign_identity: "$BITRISE_CODE_SIGNING_IDENTITY"
+        - force_provisioning_profile: "$BITRISE_PROFILE_ID"
+        - compile_bitcode: 'no'
+        - upload_bitcode: 'no'
+        - team_id: "$BITRISE_TEAM"
+        - export_options_plist_content: ''
+        - export_method: "$BITRISE_EXPORT_METHOD"
+    - deploy-to-bitrise-io@2: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            cat $BITRISE_SOURCE_DIR/foo/BitriseTest.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+            echo " " >> $BITRISE_SOURCE_DIR/foo/BitriseTest.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
+            ls /Users/vagrant/Library/Developer/Xcode/DerivedData/
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - save-spm-cache@1:
+        inputs:
+        - verbose: 'true'
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.2.x-ventura
+        machine_type_id: g2-m1.8core
+  deploy-version:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8: {}
+    - recreate-user-schemes@1:
+        inputs:
+        - project_path: "$BITRISE_SOURCE_DIR/BitriseTest.xcodeproj"
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - set-ios-version@2:
+        inputs:
+        - bundle_version_short: 2.0.0
+        - info_plist_file: "$BITRISE_SOURCE_DIR/BitriseTest/Info.plist"
+        - bundle_version: '42'
+    - xcode-archive@5.0:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+        - force_code_sign_identity: "$BITRISE_CODE_SIGNING_IDENTITY"
+        - force_provisioning_profile: "$BITRISE_PROFILE_ID"
+        - compile_bitcode: 'no'
+        - upload_bitcode: 'no'
+        - team_id: "$BITRISE_TEAM"
+        - export_options_plist_content: ''
+        - automatic_code_signing: apple-id
+        - export_method: "$BITRISE_EXPORT_METHOD"
+    - deploy-to-bitrise-io@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.3.x-ventura
+        machine_type_id: g2-m1.8core
+  download-spm:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # write your script here
+            curl https://releases.amplify.aws/aws-sdk-ios/AWSEC2-2.24.3.zip -o AWSEC2-2.24.3.zip
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+  elegant-fresh:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - cache-pull@2: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - script@1:
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            set -e
+            set -o pipefail
+            set -x
+
+            xcodebuild \
+                        -scheme $BITRISE_SCHEME \
+                        -project $BITRISE_PROJECT_PATH \
+                        -sdk iphonesimulator \
+                        -destination "platform=iOS Simulator,name=iPhone 13,OS=latest" \
+                        -derivedDataPath "${BITRISE_SOURCE_DIR}/derived_data" \
+                        -testPlan "MinimalTestPlan" \
+                        -testPlan "TestPlan1" \
+                        -testPlan "TestPlan2" \
+                        build-for-testing
+    - script@1:
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            set -e
+            set -o pipefail
+            set -x
+
+            # write your script here
+            ls ${BITRISE_SOURCE_DIR}/derived_data/Build/Products/Debug-iphonesimulator
+            ls ${BITRISE_SOURCE_DIR}/derived_data/Build/Products
+    - deploy-to-bitrise-io@2: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -e
+            set -o pipefail
+            set -x
+
+
+            ARTIFACT_REGEX='testbundle.zip=>https://app.bitrise.io/artifact/([a-f0-9]+)/download'
+            [[ $BITRISE_PERMANENT_DOWNLOAD_URL_MAP =~ $ARTIFACT_REGEX ]]
+            envman add --key ARTIFACT_SLUG --value "${BASH_REMATCH[1]}"
+        title: Find the artifact slug of the test bundle
+    - set-env-var@0:
+        inputs:
+        - destination_keys: ORCHESTRATOR_BUILD_SLUG
+        - value: "$BITRISE_BUILD_SLUG"
+    - build-router-start@0:
+        inputs:
+        - access_token: "$BITRISE_API_TOKEN"
+        - workflows: elegant-ui-tests
+        - environment_key_list: |-
+            ORCHESTRATOR_BUILD_SLUG
+            ARTIFACT_SLUG
+        - verbose: 'yes'
+    - cache-push@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.1.x-edge
+        machine_type_id: g2-m1-max.5core
+  elegant-orchestrator:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - cache-pull@2: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - xcode-build-for-test@2:
+        inputs:
+        - destination: platform=iOS Simulator,name=iPhone 8 Plus,OS=latest
+        - test_plan: ''
+        - xcodebuild_options: "-testPlan TestPlan1 -testPlan TestPlan2"
+        - verbose_log: 'yes'
+    - deploy-to-bitrise-io@2: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -e
+            set -o pipefail
+            set -x
+
+
+            ARTIFACT_REGEX='testbundle.zip=>https://app.bitrise.io/artifact/([a-f0-9]+)/download'
+            [[ $BITRISE_PERMANENT_DOWNLOAD_URL_MAP =~ $ARTIFACT_REGEX ]]
+            envman add --key ARTIFACT_SLUG --value "${BASH_REMATCH[1]}"
+        title: Find the artifact slug of the test bundle
+    - set-env-var@0:
+        inputs:
+        - destination_keys: ORCHESTRATOR_BUILD_SLUG
+        - value: "$BITRISE_BUILD_SLUG"
+    - build-router-start@0:
+        inputs:
+        - access_token: "$BITRISE_API_TOKEN"
+        - workflows: elegant-tests
+        - environment_key_list: |-
+            ORCHESTRATOR_BUILD_SLUG
+            ARTIFACT_SLUG
+        - verbose: 'yes'
+    - cache-push@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.3.x
+        machine_type_id: g2-m1.4core
+  elegant-tests:
+    steps:
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo "The artifact slug is[$ARTIFACT_SLUG]"
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts/$ARTIFACT_SLUG" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r '.data.expiring_download_url' | tr -d '\n' | envman add --key ARTIFACT_URL
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ARTIFACT_URL
+
+            curl $ARTIFACT_URL -o testbundle.zip
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - content: |+
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+
+            mkdir derived_data
+            mkdir derived_data/Build
+            mkdir derived_data/Build/Products
+            unzip testbundle.zip -d derived_data/Build/Products
+
+            ls derived_data/Build/Products
+
+            pwd
+            ls /Users/vagrant/git/derived_data/Build/Products/BitriseTest_iphonesimulator15.4-x86_64.xctestrun
+
+            envman add --key BITRISE_XCTESTRUN_FILE_PATH --value "$BITRISE_SOURCE_DIR/derived_data/Build/Products/BitriseTest_iphonesimulator15.4-x86_64.xctestrun"
+
+    - xcode-test-without-building@0:
+        inputs:
+        - xcodebuild_options: "-derivedDataPath ${BITRISE_SOURCE_DIR}/derived_data"
+    - deploy-to-bitrise-io@1: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.0.x
+        machine_type_id: g2-m1-max.5core
+  elegant-ui-tests:
+    steps:
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo "The artifact slug is[$ARTIFACT_SLUG]"
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts/$ARTIFACT_SLUG" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r '.data.expiring_download_url' | tr -d '\n' | envman add --key ARTIFACT_URL
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ARTIFACT_URL
+
+            curl $ARTIFACT_URL -o testbundle.zip
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - virtual-device-testing-for-ios@1:
+        inputs:
+        - test_devices: ipad5,15.4,en,portrait
+        - test_timeout: '3000'
+        - zip_path: "$BITRISE_SOURCE_DIR/testbundle.zip"
+    - deploy-to-bitrise-io@1: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.0.x-edge
+        machine_type_id: g2-m1.4core
+  empty:
+    steps:
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - is_enable_public_page: "$PUBLIC"
+  fail-script:
+    after_run: []
+    meta:
+      bitrise.io:
+        machine_type_id: g2-m1.8core
+        stack: osx-xcode-16.2.x-edge
+    steps:
+    - script@1.2.1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            xcodebuild -version
+            ENV
+    - activate-ssh-key@4: {}
+    - git::https://github.com/bitrise-steplib/steps-git-clone.git@no-merge-ref: {}
+    - script@1:
+        title: Install Danger
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            brew install danger/tap/danger-swift
+            ls
+    - generate-text-file@0:
+        inputs:
+        - file_content: |-
+            // swift-tools-version: 5.8
+            import PackageDescription
+
+            let package = Package(
+                products: [
+                    .library(name: "DangerDeps[Product name (optional)]", type: .dynamic, targets: ["DangerDependencies"]), // dev
+                ],
+                dependencies: [
+                    .package(url: "https://github.com/danger/swift.git", from: "3.0.0"), // dev
+                    // Danger Plugins
+                    .package(url: "https://github.com/username/DangerPlugin.git", from: "0.1.0") // dev
+                ],
+                targets: [
+                    .target(name: "DangerDependencies", dependencies: ["Danger", "DangerPlugin"]), // dev
+                ]
+            )
+        - file_name: Package.swift
+    - script@1:
+        inputs:
+        - content: |+
+            set -euxo pipefail
+            echo "Green"
+            swift run danger-swift ci --id 23
+            echo "Red?"
+
+  firebase-demo:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - save-cache@1: {}
+    - recreate-user-schemes@1: {}
+    - xcode-build-for-simulator@0:
+        inputs:
+        - cache_level: none
+        - verbose_log: 'yes'
+    - xcode-test@4:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - simulator_device: iPhone 13 Pro
+        - xcodebuild_test_options: "-parallel-testing-enabled YES -parallel-testing-worker-count
+            4"
+        - verbose: 'yes'
+        - destination: platform=iOS Simulator,name=iPhone 13 Pro,OS=latest
+        - verbose_log: 'yes'
+        - collect_simulator_diagnostics: on_failure
+        - xcodebuild_options: "-parallel-testing-enabled YES -parallel-testing-worker-count
+            4"
+        - maximum_test_repetitions: '0'
+        - log_formatter: xcodebuild
+        - scheme: "$BITRISE_SCHEME"
+    - virtual-device-testing-for-ios@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            xcodebuild test on different devices
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        run_if: 'false'
+    - restore-cache@1: {}
+    - deploy-to-bitrise-io@2.0: {}
+  firebase-deploy:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4: {}
+    - cache-pull@2: {}
+    - recreate-user-schemes@1:
+        inputs:
+        - project_path: "$BITRISE_SOURCE_DIR/BitriseTest.xcodeproj"
+    - certificate-and-profile-installer@1: {}
+    - xcode-archive@4.2:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+        - force_code_sign_identity: "$BITRISE_CODE_SIGNING_IDENTITY"
+        - force_provisioning_profile: "$BITRISE_PROFILE_ID"
+        - compile_bitcode: 'no'
+        - upload_bitcode: 'no'
+        - team_id: "$BITRISE_TEAM"
+        - export_method: "$BITRISE_EXPORT_METHOD"
+    - firebase-app-distribution@0:
+        inputs:
+        - app: 1:729822476188:ios:70b0808e590217c154fa59
+        - release_notes: ''
+        - testers: ''
+        - upgrade_firebase_tools: 'true'
+        - firebase_token: "$FIREBASE_TOKEN"
+    - cache-push@2: {}
+  gen2-primary:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4: {}
+    - cache-pull@2: {}
+    - certificate-and-profile-installer@1: {}
+    - xcode-test@2:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+    - deploy-to-bitrise-io@1: {}
+    - cache-push@2: {}
+  Generate-Flaky-TestReport:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8:
+        inputs:
+        - merge_pr: 'no'
+        - update_submodules: 'no'
+        - clone_depth: '1'
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - recreate-user-schemes@1: {}
+    - xcode-test@4:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - simulator_device: iPhone 13 Pro
+        - xcodebuild_test_options: "-parallel-testing-enabled YES -parallel-testing-worker-count
+            4"
+        - verbose: 'yes'
+        - destination: platform=iOS Simulator,name=iPhone 13 Pro,OS=latest
+        - verbose_log: 'yes'
+        - collect_simulator_diagnostics: on_failure
+        - maximum_test_repetitions: '3'
+        - log_formatter: xcodebuild
+        - test_plan: OneFlakyTest
+        - cache_level: none
+        - test_repetition_mode: retry_on_failure
+        - scheme: "$BITRISE_SCHEME"
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            ls $BITRISE_DEPLOY_DIR
+    - git::https://github.com/atanas-bitrise/steps-deploy-to-bitrise-io.git@flaky-test-reports: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.2.x-ventura
+        machine_type_id: g2-m1-max.5core
+  is-gpu-test:
+    steps:
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - script_file_path:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+
+            brew install yq
+
+            export EXTRACTED_METHOD=$(yq ".workflows.$BITRISE_TRIGGERED_WORKFLOW_TITLE.steps.[] | select(.xcode-archive*).x*.inputs.[] | select(.distribution_method).d*" $TMPDIR/*/bitrise.yml)
+
+            export SA_DISTRIBUTION_METHOD=${EXTRACTED_METHOD:-development}
+            echo "SA Distribution method:"
+            echo $SA_DISTRIBUTION_METHOD
+
+            envman add --key "SA_DISTRIBUTION_METHOD" --value $SA_DISTRIBUTION_METHOD
+    - git::https://github.com/atanas-bitrise/steps-certificate-and-profile-installer.git@export-method:
+        inputs:
+        - install_defaults: 'no'
+    - xcode-archive@5:
+        run_if: 'false'
+        inputs:
+        - distribution_method: app-store
+    - script@1:
+        inputs:
+        - script_file_path:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            echo $PROFILE_TEAM_ID
+            echo $PROFILE_IDENTITY
+            echo $PROFILE_NAME
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.3.x
+        machine_type_id: g2-m1.4core
+  Java-x86:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            which java
+            file $(which java)
+            cat /Users/vagrant/.jenv/shims/java
+            echo $JAVA_HOME
+            ls /Users/vagrant/.jenv/versions/11.0
+            ls /Users/vagrant/.jenv/versions/11.0/bin
+            file /Users/vagrant/.jenv/versions/11.0/bin/java
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.2.x-ventura
+        machine_type_id: g2-m1-max.5core
+  list-tests:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6.1: {}
+    - xcode-test@4:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - simulator_device: iPhone 13 Pro
+        - xcodebuild_test_options: "-parallel-testing-enabled YES -parallel-testing-worker-count
+            4"
+        - verbose: 'yes'
+        - destination: platform=iOS Simulator,name=Atanas-Device,OS=15.4
+        - verbose_log: 'yes'
+        - collect_simulator_diagnostics: on_failure
+        - xcodebuild_options: "-parallel-testing-enabled YES -parallel-testing-worker-count
+            4"
+        - scheme: "$BITRISE_SCHEME"
+    - deploy-to-bitrise-io@2.0: {}
+  m1-without-rosetta:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            arch
+            which arch
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - recreate-user-schemes@1: {}
+    - xcode-test@4:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - simulator_device: iPhone 13 Pro
+        - verbose: 'yes'
+        - destination: platform=iOS Simulator,name=iPhone 13 Pro,OS=latest
+        - verbose_log: 'yes'
+        - collect_simulator_diagnostics: on_failure
+        - maximum_test_repetitions: '0'
+        - log_formatter: xcodebuild
+        - scheme: "$BITRISE_SCHEME"
+    - deploy-to-bitrise-io@2: {}
+  pipelines-cli:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            curl https://app.bitrise.io/app/$APP_SLUG/build/start.json --data "{\"hook_info\":{\"type\":\"bitrise\",\"build_trigger_token\":\"$BUILD_TRIGGER_TOKEN\"},\"build_params\":{\"branch\":\"master\",\"pipeline_id\":\"save-credits\"},\"triggered_by\":\"curl\"}"
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+  pipelines-firebase:
+    steps:
+    - pull-intermediate-files@1: {}
+    - git::https://github.com/bitrise-steplib/bitrise-step-artifact-pull.git@main:
+        title: Pull artifacts
+        inputs:
+        - verbose: true
+        - artifact_sources: prepare-for-testing.*
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            env
+
+            # write your script here
+            echo $BITRISE_ARTIFACT_PATHS
+            echo ${BITRISE_ARTIFACT_PATHS##*|}
+
+            envman add --key ARTIFACT_PATH --value ${BITRISE_ARTIFACT_PATHS##*|}
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        title: Print artifact paths
+    - virtual-device-testing-for-ios@1:
+        inputs:
+        - test_timeout: '900'
+        - zip_path: "$ARTIFACT_PATH"
+    - deploy-to-bitrise-io@1: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.0.x-edge
+        machine_type_id: g2-m1.4core
+  pipelines-prepare-for-testing:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            ENV
+
+            echo $BITRISEIO_PIPELINE_ID
+
+            # write your script here
+            echo $MYVAR
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8: {}
+    - cache-pull@2: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - xcode-build-for-test@2:
+        inputs:
+        - verbose_log: 'yes'
+    - deploy-to-bitrise-io@2: {}
+    - cache-push@2: {}
+  primary:
+    steps:
+    - activate-ssh-key@4:
+        run_if: 'false'
+    - git-clone@8:
+        inputs:
+        - merge_pr: 'no'
+        - update_submodules: 'no'
+        - clone_depth: 1
+        - clone_into_dir: "$BITRISE_SOURCE_DIR"
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            pwd
+            ls
+            echo $BITRISE_SOURCE_DIR
+            ls $BITRISE_SOURCE_DIR
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - recreate-user-schemes@1: {}
+    - xcode-test@6:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - simulator_device: iPhone 13 Pro
+        - xcodebuild_test_options: "-parallel-testing-enabled YES -parallel-testing-worker-count
+            4"
+        - verbose: 'yes'
+        - destination: platform=iOS Simulator,name=iPhone 13 Pro,OS=latest
+        - verbose_log: 'yes'
+        - collect_simulator_diagnostics: on_failure
+        - cache_level: none
+        - test_repetition_mode: retry_on_failure
+        - output_tool: xcodebuild
+        - log_formatter: xcodebuild
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            # xcrun simctl diagnose -l
+
+            mkdir xcode16
+            xcrun "xcresulttool" "get" "--format" "json" "--path" $BITRISE_XCRESULT_PATH --legacy > xcode16/converted-test-results.json
+            ls xcode16
+            cp xcode16/converted-test-results.json $BITRISE_DEPLOY_DIR/
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        run_if: 'false'
+    - custom-test-results-export@1:
+        inputs:
+        - search_pattern: "*/xcode16/*.json"
+        - bitrise_test_result_dir: "$BITRISE_SOURCE_DIR"
+        - test_name: Xcode 16
+        run_if: 'false'
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            which go
+            go version
+            asdf list golang
+            asdf global golang 1.21
+            which go
+            go version
+            asdf list golang
+
+            rm $BITRISE_DEPLOY_DIR/*
+            rm -R $BITRISE_TEST_DEPLOY_DIR/*
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - bitrise-run@0:
+        inputs:
+        - workflow_id: primary
+    - deploy-to-bitrise-io@2:
+        run_if: ''
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.2.x
+        machine_type_id: g2-m1.8core
+  primary-sonar-wrapper:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6.2: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - file-downloader@1:
+        inputs:
+        - destination: build-wrapper-macosx-x86.zip
+        - file_permission: '777'
+        - source: https://sonarcloud.io/static/cpp/build-wrapper-macosx-x86.zip
+    - unzip@0:
+        inputs:
+        - output_path: "."
+        - archive_path: build-wrapper-macosx-x86.zip
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |+
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+
+            ./build-wrapper-macosx-x86/build-wrapper-macosx-x86 --out-dir build-wrapper xcodebuild "-project" "/Users/vagrant/git/BitriseTest.xcodeproj" "-scheme" "BitriseTest" "archive" "-archivePath" "BitriseTest.xcarchive" "-destination" "generic/platform=iOS"
+
+            ls -la /tmp/sonarsource-build-wrapper-cache-501/usr/bin/xcodebuild
+
+
+            cp /tmp/sonarsource-build-wrapper-cache-501/usr/bin/xcodebuild $BITRISE_DEPLOY_DIR
+
+    - deploy-to-bitrise-io@2: {}
+  read-environment-variable:
+    steps:
+    - activate-ssh-key@4: {}
+    - script@1:
+        inputs:
+        - script_file_path:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            echo $RELEASE_GIT_BRANCH
+            echo $BITRISE_GIT_BRANCH
+
+            envman add --key BITRISE_GIT_BRANCH --value $RELEASE_GIT_BRANCH
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        run_if: '{{getenv "RELEASE_GIT_BRANCH" | ne ""}}'
+    - script@1:
+        inputs:
+        - script_file_path:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            echo $BITRISE_GIT_BRANCH
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - git-clone@8: {}
+  rosetta:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            arch
+            which arch
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - recreate-user-schemes@1: {}
+    - git::https://github.com/atanas-bitrise/steps-xcode-test.git@rosetta:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - simulator_device: iPhone 13 Pro
+        - verbose: 'yes'
+        - destination: platform=iOS Simulator,name=iPhone 13 Pro,OS=latest
+        - verbose_log: 'yes'
+        - collect_simulator_diagnostics: on_failure
+        - maximum_test_repetitions: '0'
+        - log_formatter: xcbeautify
+        - scheme: "$BITRISE_SCHEME"
+    - deploy-to-bitrise-io@2: {}
+  rosetta-build-for-testing:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            arch
+            which arch
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@7: {}
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - recreate-user-schemes@1: {}
+    - git::https://github.com/atanas-bitrise/steps-xcode-build-for-test.git@rosetta:
+        inputs:
+        - log_formatter: xcodebuild
+    - deploy-to-bitrise-io@2: {}
+  Run_Device_Tests:
+    steps:
+    - activate-ssh-key@4: {}
+    - git-clone@8: {}
+    - cache-pull@2: {}
+    - cocoapods-install@2:
+        run_if: 'false'
+    - certificate-and-profile-installer@1: {}
+    - xcode-build-for-test@2:
+        inputs:
+        - test_plan: MinimalTestPlan
+        - verbose_log: 'yes'
+    - virtual-device-testing-for-ios@1:
+        inputs:
+        - test_devices: iphone13pro,15.7,en,portrait
+    - xcode-archive@4: {}
+    - deploy-to-bitrise-io@2: {}
+    - cache-push@2: {}
+  Run_Device_Tests_Atanas:
+    steps:
+    - activate-ssh-key@4: {}
+    - git-clone@8: {}
+    - cache-pull@2: {}
+    - cocoapods-install@2:
+        run_if: 'false'
+    - certificate-and-profile-installer@1: {}
+    - xcode-build-for-test@2:
+        inputs:
+        - test_plan: MinimalTestPlan
+        - verbose_log: 'yes'
+    - virtual-device-testing-for-ios@1:
+        inputs:
+        - test_devices: iphone13pro,15.7,en,portrait
+    - deploy-to-bitrise-io@2: {}
+    - cache-push@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.1.x-ventura
+        machine_type_id: g2-m1.8core
+  security:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8: {}
+    - recreate-user-schemes@1:
+        inputs:
+        - project_path: "$BITRISE_SOURCE_DIR/BitriseTest.xcodeproj"
+    - certificate-and-profile-installer@1:
+        inputs:
+        - install_defaults: 'no'
+    - set-ios-version@2:
+        inputs:
+        - bundle_version_short: 2.0.0
+        - info_plist_file: "$BITRISE_SOURCE_DIR/BitriseTest/Info.plist"
+        - bundle_version: '42'
+    - xcode-archive@4:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+        - force_code_sign_identity: "$BITRISE_CODE_SIGNING_IDENTITY"
+        - force_provisioning_profile: "$BITRISE_PROFILE_ID"
+        - compile_bitcode: 'no'
+        - upload_bitcode: 'no'
+        - team_id: "$BITRISE_TEAM"
+        - export_options_plist_content: ''
+        - export_method: "$BITRISE_EXPORT_METHOD"
+    - urls-scanner@1:
+        inputs:
+        - black_list: ''
+        - ssl_labs_scan: 'yes'
+    - deploy-to-bitrise-io@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.2.x-ventura-rosetta
+        machine_type_id: g2-m1.8core
+  share-environment-variable:
+    steps:
+    - set-env-var@0:
+        inputs:
+        - destination_keys: RELEASE_GIT_BRANCH
+        - value: release/10.15.99
+    - share-pipeline-variable@1:
+        inputs:
+        - variables: RELEASE_GIT_BRANCH
+  sims:
+    steps:
+    - restore-cache@2:
+        inputs:
+        - key: simulator-16.2
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            xcrun simctl list
+            #mkdir Sim16.2
+            #sudo xcodebuild -downloadPlatform iOS -buildVersion 16.2 -exportPath Sim16.2
+            #sudo chmod 777 Sim16.2/iphonesimulator_16.2_20C52.dmg
+            xcrun simctl runtime add Sim16.2/iphonesimulator_16.2_20C52.dmg
+            xcrun simctl list
+
+            # sleep 600
+            # xcodebuild -downloadAllPlatforms
+
+            # xcrun simctl list | grep -i --invert-match 'unavailable'
+    - file-downloader@1:
+        inputs:
+        - destination: "~/Downloads/watchOS_9.1_beta_3_Simulator_Runtime.dmg"
+        - source: https://download.developer.apple.com/Developer_Tools/watchOS_9.1_beta_3_Simulator_Runtime/watchOS_9.1_beta_3_Simulator_Runtime.dmg
+        run_if: 'false'
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            ls -l ~/Downloads
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - save-cache@1:
+        inputs:
+        - key: simulator-16.2
+        - paths: Sim16.2
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.2.x
+        machine_type_id: g2.mac.x-large
+  start-pipeline:
+    steps:
+    - build-router-start@0:
+        inputs:
+        - workflows: test-shards
+        - access_token: "$BITRISE_API_TOKEN"
+  success:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            echo $SKIP_PIPELINE
+            echo $ATANAS | sed 's/./& /g'
+            ENV
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - activate-ssh-key@4: {}
+    - git-clone@8: {}
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            set -e
+            set -o pipefail
+            set -x
+
+            system_profiler SPSoftwareDataType
+
+            brew install git-lfs
+
+            # gem "install" "bundler" "--no-document" "-v" "2.5.10" "--force"
+
+            # git fetch --tags
+            # git checkout third
+            # git switch third
+            # git describe --tags --match '0.3*'
+            # git describe third --tags
+
+            which fastlane
+            fastlane --version
+
+            ls /Applications
+
+            ENV
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.4.x
+        machine_type_id: g2-m1.8core
+    envs:
+    - ATANAS_KEY: value
+      opts:
+        is_expand: false
+  test-integration:
+    steps:
+    - file-downloader@1:
+        inputs:
+        - destination: "$BITRISE_DEPLOY_DIR/Test-BitriseTest.xcresult.zip"
+        - source: "$BITRISEIO_MANUAL_TESTS_URL"
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            cd $BITRISE_DEPLOY_DIR
+            unzip Test-BitriseTest.xcresult.zip
+            ls
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - custom-test-results-export@0:
+        inputs:
+        - base_path: "$BITRISE_DEPLOY_DIR"
+        - verbose_log: 'yes'
+        - search_pattern: "$BITRISE_DEPLOY_DIR/Test-BitriseTest.xcresult"
+        - test_name: iOS Tests
+    - deploy-to-bitrise-io@2: {}
+  test-without-building:
+    steps:
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $BITRISE_FINISHED_STAGES
+
+            echo $ORCHESTRATOR_BUILD_SLUG
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r --arg title "testbundle.zip" '.data[] | select(.title == $title).slug' | tr -d '\n' | envman add --key ARTIFACT_SLUG
+
+            # write your script here
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo "The artifact slug is[$ARTIFACT_SLUG]"
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts/$ARTIFACT_SLUG" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r '.data.expiring_download_url' | tr -d '\n' | envman add --key ARTIFACT_URL
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ARTIFACT_URL
+
+            curl $ARTIFACT_URL -o testbundle.zip
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - git::https://github.com/digitalrmdy/bitrise-step-unzip.git@master:
+        inputs:
+        - archive_path: "./testbundle.zip"
+        - output_path: "."
+    - xcode-test-without-building@0:
+        inputs:
+        - destination: platform=iOS Simulator,name=iPhone 11,OS=15.5
+        - xctestrun: BitriseTest_MinimalTestPlan_iphonesimulator15.5-x86_64.xctestrun
+    - deploy-to-bitrise-io@1: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.1.x
+        machine_type_id: g2-m1.8core
+  test-without-building-12k:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            xcrun simctl list
+            ENV
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - pull-intermediate-files@1: {}
+    - git::https://github.com/digitalrmdy/bitrise-step-unzip.git@master:
+        inputs:
+        - archive_path: "$BITRISE_TEST_BUNDLE_ZIP_PATH"
+        - output_path: "."
+    - xcode-test-without-building@0:
+        inputs:
+        - destination: platform=iOS Simulator,name=iPhone 11,OS=16.4
+        - xctestrun: BitriseTest_MinimalTestPlan_iphonesimulator17.0-arm64.xctestrun
+    - deploy-to-bitrise-io@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-14.3.x-ventura
+        machine_type_id: g2-m1-max.10core
+  test-without-building-12k-plan1:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            ENV
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - pull-intermediate-files@1: {}
+    - git::https://github.com/digitalrmdy/bitrise-step-unzip.git@master:
+        inputs:
+        - archive_path: "$BITRISE_TEST_BUNDLE_ZIP_PATH"
+        - output_path: "."
+    - xcode-test-without-building@0:
+        inputs:
+        - destination: platform=iOS Simulator,name=iPhone 11,OS=15.5
+        - test_repetition_mode: retry_on_failure
+        - xctestrun: BitriseTest_OneFlakyTest_iphonesimulator15.5-x86_64.xctestrun
+    - deploy-to-bitrise-io@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.0.x
+        machine_type_id: g2-m1.8core
+  test-without-building-12k-plan2:
+    steps:
+    - pull-intermediate-files@1: {}
+    - git::https://github.com/digitalrmdy/bitrise-step-unzip.git@master:
+        inputs:
+        - archive_path: "$BITRISE_TEST_BUNDLE_ZIP_PATH"
+        - output_path: "."
+    - xcode-test-without-building@0:
+        inputs:
+        - destination: platform=iOS Simulator,name=iPhone 11,OS=15.5
+        - xctestrun: BitriseTest_TestPlan2_iphonesimulator15.5-x86_64.xctestrun
+    - deploy-to-bitrise-io@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.0.x
+        machine_type_id: g2-m1.8core
+  test-without-building-script:
+    steps:
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ORCHESTRATOR_BUILD_SLUG
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r --arg title "testbundle.zip" '.data[] | select(.title == $title).slug' | tr -d '\n' | envman add --key ARTIFACT_SLUG
+
+            # write your script here
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo "The artifact slug is[$ARTIFACT_SLUG]"
+
+            curl -X 'GET' \
+              "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds/$ORCHESTRATOR_BUILD_SLUG/artifacts/$ARTIFACT_SLUG" \
+              -H 'accept: application/json' \
+              -H "Authorization: $BITRISE_API_TOKEN" | jq -r '.data.expiring_download_url' | tr -d '\n' | envman add --key ARTIFACT_URL
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - script@1:
+        inputs:
+        - is_debug: 'yes'
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            echo $ARTIFACT_URL
+
+            curl $ARTIFACT_URL -o testbundle.zip
+
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - git::https://github.com/digitalrmdy/bitrise-step-unzip.git@master:
+        inputs:
+        - archive_path: "./testbundle.zip"
+        - output_path: "."
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            xcodebuild "test-without-building" "-xctestrun" "BitriseTest_iphonesimulator15.5-x86_64.xctestrun" "-destination" "platform=iOS Simulator,name=iPhone 11,OS=15.5" "-resultBundlePath" "Test-BitriseTest_iphonesimulator15.5-x86_64.xcresult" "-testPlan" "TestPlan2"
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+    - deploy-to-bitrise-io@1: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.0.x
+        machine_type_id: g2-m1.8core
+  app-store-connection:
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            curl -H "BUILD_API_TOKEN: ${BITRISE_BUILD_API_TOKEN}" "${BITRISE_BUILD_URL}/apple_developer_portal_data.json"
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+        - is_debug: 'yes'
+  converted: {}
+  convert:
+    steps:
+    - file-downloader@1:
+        inputs:
+        - source: "$BITRISEIO_XCTEST_URL"
+        - destination: "$BITRISE_DEPLOY_DIR/converted.xctestresult.zip"
+    - unzip@0:
+        inputs:
+        - archive_path: "$BITRISE_DEPLOY_DIR/converted.xctestresult.zip"
+        - output_path: "$BITRISE_DEPLOY_DIR/converted.xctestresult"
+    - custom-test-results-export@1:
+        inputs:
+        - search_pattern: "*.xctestresult"
+        - bitrise_test_result_dir: "$BITRISE_TEST_RESULT_DIR"
+        - test_name: Xcode 16
+        - base_path: "$BITRISE_DEPLOY_DIR"
+    - deploy-to-bitrise-io@2:
+        run_if: ''
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.0.x-edge
+        machine_type_id: g2-m1.8core
+  boot:
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.2.x
+        machine_type_id: g2.mac.x-large
+    steps:
+    - xcode-start-simulator@0:
+        inputs:
+        - destination: platform=iOS Simulator,name=iPad (10th generation),OS=18.2
+        - wait_for_boot_timeout: 180
+        - verbose_log: 'yes'
 app:
   envs:
   - opts:
@@ -50,13 +2472,36 @@ app:
     BITRISE_SCHEME: BitriseTest
   - opts:
       is_expand: false
+    ATANAS_ENV: TestTestTest
+  - opts:
+      is_expand: false
     BITRISE_EXPORT_METHOD: development
   - opts:
       is_expand: false
-    BITRISE_PROFILE_ID: b103a1f0-1f51-4d53-a41f-c08719676e94
+    BITRISE_PROFILE_ID: a043c226-0b15-4780-814a-14a0313360c9
   - opts:
       is_expand: false
-    BITRISE_CODE_SIGNING_IDENTITY: 'iPhone Developer: Dev Portal Bot Bitrise (E89JV3W9K4)'
+    BITRISE_CODE_SIGNING_IDENTITY: iPhone Developer
   - opts:
       is_expand: false
     BITRISE_TEAM: 72SA8V3WYL
+  - opts:
+      is_expand: false
+    TEST_PLAN_NAME: Default
+  - opts:
+      is_expand: false
+    SKIP_PIPELINE: 'false'
+  - ATANAS: atanas
+  - PUBLIC: 'false'
+meta:
+  bitrise.io:
+    stack: osx-xcode-15.3.x
+    machine_type_id: g2-m1.8core
+trigger_map:
+- push_branch: "*"
+  type: push
+  workflow: primary
+- pull_request_target_branch: "*"
+  draft_pull_request_enabled: false
+  type: pull_request
+  workflow: primary

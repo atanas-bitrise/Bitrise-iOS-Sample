@@ -2462,6 +2462,9 @@ workflows:
         - destination: platform=iOS Simulator,name=iPad (10th generation),OS=18.2
         - wait_for_boot_timeout: 180
         - verbose_log: 'yes'
+  only-deploy:
+    steps:
+    - deploy-to-bitrise-io@2: {}
 app:
   envs:
   - opts:

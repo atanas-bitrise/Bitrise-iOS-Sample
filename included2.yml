@@ -1,5 +1,15 @@
 format_version: 13
-
+step_bundles:
+  authenticate_and_clone:
+    steps:
+    - authenticate-host-with-netrc@0:
+        inputs:
+        - host: github.com
+        - username: username
+        - password: "$GIT_HTTP_PASSWORD"
+    - git-clone@6:
+        inputs:
+        - clone_depth: '1'
 workflows:
   test2:
     steps:

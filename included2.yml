@@ -87,6 +87,21 @@ step_bundles:
         - key: asdf-ruby-mac-m1
         run_if: '{{enveq "IS_DEVELOP_HEALTH_CHECK_JOB" "true"}}'
         title: Save asdf ruby cache
+  generate_aws_codeartifact_token:
+    envs:
+    - AWS_DOMAIN: ci
+    - AWS_DOMAIN_OWNER: 123456789
+    - AWS_REGION: us-west-12
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -exo pipefail
+
+            CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain $AWS_DOMAIN --domain-owner $AWS_DOMAIN_OWNER --region $AWS_REGION --query authorizationToken --output text)
+            envman add --key CODEARTIFACT_AUTH_TOKEN --value $CODEARTIFACT_AUTH_TOKEN
+        title: Generate Code Artifact Token
 workflows:
   test2:
     steps:

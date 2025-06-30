@@ -26,6 +26,34 @@ step_bundles:
             git checkout $MOBILE_CI_SCRIPTS_BRANCH
             git pull origin $MOBILE_CI_SCRIPTS_BRANCH
         title: Clone mobile-ci repo
+  restore_install_save_node_cache_mac:
+    steps:
+    - restore-cache@2:
+        inputs:
+        - key: asdf-node-mac-m1
+        title: Restore asdf node cache
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -exo pipefail
+
+            echo "legacy_version_file = yes" >> /Users/vagrant/.asdfrc
+            cat /Users/vagrant/.asdfrc
+            NODE_VERSION=$(cat .nvmrc | sed 's/^v//')
+            asdf install nodejs $NODE_VERSION
+            asdf global nodejs $NODE_VERSION
+            asdf reshim
+            npm install --global yarn@1.18.0
+        title: Install node versions using asdf
+    - save-cache@1:
+        inputs:
+        - paths: "/Users/vagrant/.asdf/installs/nodejs/"
+        - verbose: 'true'
+        - is_key_unique: 'true'
+        - key: asdf-node-mac-m1
+        run_if: '{{enveq "IS_DEVELOP_HEALTH_CHECK_JOB" "true"}}'
+        title: Save asdf node cache
 workflows:
   test2:
     steps:

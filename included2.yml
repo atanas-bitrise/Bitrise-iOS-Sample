@@ -6,3 +6,114 @@ workflows:
     - script:
         inputs:
         - content: echo "Hello world!"
+  deploy_android:
+    meta:
+      bitrise.io:
+        machine_type_id: g2.mac.x-large
+        stack: osx-xcode-16.2.x
+    steps:
+    - bundle::authenticate_and_clone: {}
+    - bundle::clone_ci_scripts_repository: {}
+    - set-java-version@1:
+        inputs:
+        - set_java_version: '17'
+    - bundle::restore_install_save_node_cache_mac:
+    - bundle::restore_install_save_yarn_cache: {}
+    - script@1:
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            set -exo pipefail
+            yarn useProductionEnv
+            source $WORKDIR/../mobile-ci/bitrise/android/scripts/setup-project.sh --run-expo-prebuild
+        title: Setup mobile project
+    - bundle::restore_install_save_ruby_cache: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -exo pipefail
+
+            echo $GOOGLE_PLAYSTORE_SERVICE_JSON
+            echo $GOOGLE_PLAYSTORE_SERVICE_JSON >> mobile-team.json
+            echo $GOOGLE_PLAYSTORE_SERVICE_JSON >> ./fastlane/mobile-team.json
+            cat mobile-team.json
+        title: Extract Playstore API JSON file
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -exo pipefail
+
+            echo "$VERSION && $VERSIONCODE && $JSVERSION"
+            # update version versionCode and jsVersion in app.json
+            jq '.expo.version = "'$VERSION'"' app.json > app2.json && mv app2.json app.json
+            jq '.expo.runtimeVersion = "'$VERSION'"' app.json > app2.json && mv app2.json app.json
+            jq '.expo.versionCode = '$VERSIONCODE'' app.json > app2.json && mv app2.json app.json
+            jq '.expo.jsVersion = '$JSVERSION'' app.json > app2.json && mv app2.json app.json
+            cat app.json
+        title: Increment app version
+    - restore-cache@2:
+        inputs:
+        - key: '{{ .OS }}-{{ .Arch }}-gradle-cache-{{ checksum "**/*.gradle*" "**/gradle-wrapper.properties"
+            "**/gradle.properties" "**/gradle/libs.versions.toml" }}'
+        title: Restore gradle cache
+    - restore-cache@2:
+        inputs:
+        - key: daily-metro-cache-mac-android
+        - verbose: 'true'
+        title: Restore Metro JS cache for android
+    - bundle::generate_aws_codeartifact_token: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -exo pipefail
+
+            export ENVFILE=.env.production
+            export ENV_NAME="production"
+            export SENTRY_DISABLE_AUTO_UPLOAD=false
+            gem install bundler:2.4.10
+            bundle _2.4.10_ install
+            bundle _2.4.10_ exec fastlane android build_release_bundle
+        title: Build Android App
+    - save-gradle-cache@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -exo pipefail
+            bundle _2.4.10_ exec fastlane android release_playstore
+        run_if: '{{or (enveq "DEBUG_RUN" "false") (enveq "DEBUG_RUN" "")}}'
+        title: Release Android App
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -ex
+
+            envman add --key RELEASE_ANDROID_STATUS --value $BITRISE_BUILD_STATUS
+            echo "envman add --key RELEASE_ANDROID_STATUS --value $BITRISE_BUILD_STATUS" >> deploy_android_env.txt
+        is_always_run: true
+        title: Set Release Android status
+    - bundle::sentry_sourcemap_upload_android: {}
+    - share-pipeline-variable@1:
+        inputs:
+        - variables: RELEASE_ANDROID_STATUS
+        is_always_run: true
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - pipeline_intermediate_files: "$WORKDIR/deploy_android_env.txt:DEPLOY_ANDROID_ENV"
+        - debug_mode: 'true'
+        - notify_user_groups: none
+        - zip_name: ''
+        is_always_run: true
+        is_skippable: true
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - pipeline_intermediate_files: "$ANDROID_RELEASE_AAB_PATH:ANDROID_BUILD"
+        - debug_mode: 'true'
+        - notify_user_groups: none
+        - zip_name: ''
+        is_always_run: true
+        is_skippable: true

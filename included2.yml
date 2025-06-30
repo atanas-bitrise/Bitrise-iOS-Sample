@@ -65,6 +65,28 @@ step_bundles:
         - cache_local_deps: 'yes'
     - save-npm-cache@1:
         run_if: '{{enveq "IS_DEVELOP_HEALTH_CHECK_JOB" "true"}}'
+  restore_install_save_ruby_cache:
+    steps:
+    - restore-cache@2:
+        inputs:
+        - key: asdf-ruby-mac-m1
+        title: Restore asdf ruby cache
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+
+            asdf install ruby 3.3.0
+            asdf global ruby 3.3.0
+            asdf reshim
+        title: Install ruby using asdf
+    - save-cache@1:
+        inputs:
+        - paths: "/Users/vagrant/.asdf/installs/ruby/"
+        - is_key_unique: 'true'
+        - key: asdf-ruby-mac-m1
+        run_if: '{{enveq "IS_DEVELOP_HEALTH_CHECK_JOB" "true"}}'
+        title: Save asdf ruby cache
 workflows:
   test2:
     steps:

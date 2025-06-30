@@ -54,6 +54,17 @@ step_bundles:
         - key: asdf-node-mac-m1
         run_if: '{{enveq "IS_DEVELOP_HEALTH_CHECK_JOB" "true"}}'
         title: Save asdf node cache
+  restore_install_save_yarn_cache:
+    steps:
+    - restore-cache@2:
+        inputs:
+        - key: '{{ .OS }}-{{ .Arch }}-npm-cache-{{ checksum "yarn.lock"}}'
+        title: Restore yarn cache
+    - yarn@0:
+        inputs:
+        - cache_local_deps: 'yes'
+    - save-npm-cache@1:
+        run_if: '{{enveq "IS_DEVELOP_HEALTH_CHECK_JOB" "true"}}'
 workflows:
   test2:
     steps:

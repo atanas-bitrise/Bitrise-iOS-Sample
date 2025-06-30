@@ -102,6 +102,8 @@ step_bundles:
             CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain $AWS_DOMAIN --domain-owner $AWS_DOMAIN_OWNER --region $AWS_REGION --query authorizationToken --output text)
             envman add --key CODEARTIFACT_AUTH_TOKEN --value $CODEARTIFACT_AUTH_TOKEN
         title: Generate Code Artifact Token
+  sentry_sourcemap_upload_android:
+    steps:
 workflows:
   test2:
     steps:

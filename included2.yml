@@ -10,6 +10,22 @@ step_bundles:
     - git-clone@6:
         inputs:
         - clone_depth: '1'
+  clone_ci_scripts_repository:
+    envs:
+    - MOBILE_CI_REPO: mobile-ci
+    - MOBILE_CI_SCRIPTS_BRANCH: master
+    steps:
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -exo pipefail
+
+            git clone https://github.com/$MOBILE_CI_REPO.git $WORKDIR/../mobile-ci
+            cd $WORKDIR/../mobile-ci
+            git checkout $MOBILE_CI_SCRIPTS_BRANCH
+            git pull origin $MOBILE_CI_SCRIPTS_BRANCH
+        title: Clone mobile-ci repo
 workflows:
   test2:
     steps:

@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     name: Build and Test default scheme using any available iPhone simulator
-    runs-on: agent-pool-3e592397-7edb-49e2-a16a-3cc3ef4cd13f
+    runs-on: vm-pool-g2-mac-m4pro-7c-27g-0003b57-913009cb-c720
 
     steps:
       - name: Checkout

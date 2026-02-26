@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     name: Build and Test default scheme using any available iPhone simulator
-    runs-on: vm-pool-g2-mac-m4pro-7c-27g-0003b57-913009cb-c720
+    runs-on: feb
 
     steps:
       - name: Checkout

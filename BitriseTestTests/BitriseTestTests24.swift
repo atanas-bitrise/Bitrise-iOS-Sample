@@ -8,7 +8,7 @@
 import XCTest
 @testable import BitriseTest
 
-class BitriseTestTests: XCTestCase {
+class BitriseTestTests24: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
@@ -16,10 +16,6 @@ class BitriseTestTests: XCTestCase {
 
     override func tearDownWithError() throws {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-        
-    func testFlakyMultipleRuns() throws {
-        XCTAssertTrue(Bool.random())
     }
 
     func testExample0() throws { XCTAssertTrue(1==1, "One is not equal to one") }

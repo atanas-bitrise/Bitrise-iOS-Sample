@@ -4,7 +4,7 @@ Simple iOS Project  with working bitrise.yml included in the root of the project
 
 ## Bitrise Setup
 
-Create a merge conflict.
+Change so that I can make a pull request.
 
 Create a new project in Bitrise using this repo as you normally would. Use the `bitrise.yml` from the repo to define your workflows.
 

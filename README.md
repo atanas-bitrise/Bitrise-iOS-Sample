@@ -4,7 +4,7 @@ Simple iOS Project  with working bitrise.yml included in the root of the project
 
 ## Bitrise Setup
 
-Change so that I can make a pull request.
+Change so that I can make a pull request. Will it trigger another review upon changing?
 
 Create a new project in Bitrise using this repo as you normally would. Use the `bitrise.yml` from the repo to define your workflows.
 

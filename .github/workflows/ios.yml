@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     name: Build and Test default scheme using available Simulator
-    runs-on: machine_type:g2.mac.m4pro.7c-27g
+    runs-on: self-hosted
 
     steps:
       - name: Checkout

@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build and Test default scheme using any available Simulator
+    name: Build and Test default scheme using available Simulator
     runs-on: self-hosted
 
     steps:

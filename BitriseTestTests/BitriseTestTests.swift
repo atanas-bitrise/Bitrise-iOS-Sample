@@ -6,7 +6,15 @@
 //
 
 import XCTest
+import Testing
 @testable import BitriseTest
+
+struct StoreTests {
+    @Test("Parametrized flaky", arguments: 1 ... 2)
+    func parametrizedFlakyMultipleRuns(count: Int) throws {
+        #expect(Bool.random())
+    }
+}
 
 class BitriseTestTests: XCTestCase {
 
